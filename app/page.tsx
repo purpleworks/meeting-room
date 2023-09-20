@@ -6,27 +6,22 @@ import styled from "styled-components";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import {
-  ArrowRightOutlined,
   CalendarOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
-import {
-  Layout,
-  Menu,
-  Button,
-  theme,
-  Modal,
-  Input,
-  DatePicker,
-  TimePicker,
-} from "antd";
-import type { DatePickerProps, RangePickerProps } from "antd/es/date-picker";
-import dayjs, { Dayjs } from "dayjs";
+import { Layout, Menu, Button, theme } from "antd";
+import { Dayjs } from "dayjs";
 import axios from "axios";
 import useSWR from "swr";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { EventInput } from "@fullcalendar/core/index.js";
+import { Session } from "next-auth";
+import { TUser } from "./type/user";
+import DetailMeetingModal from "./components/modal/DetailMeetingModal";
+import ModifyMeetingModal from "./components/modal/ModifyMeetingModal";
+import CreateMeetingModal from "./components/modal/CreateMeetingModal";
 
 interface IEvent {
   id: number;
@@ -48,12 +43,11 @@ interface IMeeting {
   end_date: Date;
 }
 
-const { RangePicker } = DatePicker;
 const { Header, Sider, Content } = Layout;
 
 export default function Home() {
   const { data: session } = useSession();
-  const [user, setUser] = useState({
+  const [user, setUser] = useState<TUser>({
     id: 0,
     name: "",
     login: "",
@@ -79,22 +73,9 @@ export default function Home() {
   const [meetingsData, setMeetingsData] = useState<IMeeting[]>([]);
   const [refetchData, setRefetchData] = useState<EventInput[]>();
   const { data, error, isLoading, mutate } = useSWR(
-    `http://localhost:8080/api/rest/meetings/${parseInt(selectRoomNum)}`,
+    `/api/rest/meetings/${parseInt(selectRoomNum)}`,
     fetcher
   );
-
-  const warning = () => {
-    Modal.warning({
-      title: "예약할 수 없습니다",
-      content: "해당 시간대에 예약이 있습니다.",
-    });
-  };
-  const issue = () => {
-    Modal.warning({
-      title: "예약할 수 없습니다",
-      content: "시간을 확인해주세요.",
-    });
-  };
 
   useEffect(() => {
     setMeetingsData(data?.meetings);
@@ -116,15 +97,6 @@ export default function Home() {
 
   const dateToTimestamp = (date: Date | string | null) => {
     return moment(date).format("YYYY-MM-DDTHH:mm:ss+09:00");
-  };
-  const onChange = (
-    value: DatePickerProps["value"] | RangePickerProps["value"],
-    dateString: [string, string]
-  ) => {
-    const formatData = dateString.map((date: string) => {
-      return date.replace(" ", "T") + ":00+09:00";
-    });
-    setSelectDateTime(formatData);
   };
 
   const handleChangeStartDate = (value: Dayjs | null, dateString: string) => {
@@ -150,83 +122,22 @@ export default function Home() {
     }
   };
 
-  const handleCreate = () => {
-    axios({
-      method: "get",
-      url: "http://localhost:8080/api/rest/search-meetings",
-      params: {
-        start_date: selectDateTime[0],
-        end_date: selectDateTime[1],
-      },
-    })
-      .then((res) => {
-        if (res.data.meetings[0] === undefined) {
-          axios
-            .post("http://localhost:8080/api/rest/create-meeting", {
-              company_name: user.company,
-              end_date: selectDateTime[1],
-              room_id: selectRoomNum,
-              start_date: selectDateTime[0],
-              user_id: user.id,
-            })
-            .then(() => {
-              setModalOpen(false);
-              setSelectDateTime(["", ""]);
-              mutate();
-            })
-            .catch((err) => console.log("err", err));
-        } else {
-          warning();
-        }
-      })
-      .catch((err) => {
-        console.log("err", err);
-      });
-  };
-
-  const onCancel = () => {
+  const handleCreateMeetingCancel = () => {
     setSelectDateTime(["", ""]);
     setModalOpen(false);
   };
 
-  const handleModify = () => {
-    const newEndDate =
-      selectDateTime[1] === ""
-        ? dateToTimestamp(selectEventData.end)
-        : selectDateTime[1];
-    const newStartDate =
-      selectDateTime[0] === ""
-        ? dateToTimestamp(selectEventData.start)
-        : selectDateTime[0];
-    if (newEndDate > newStartDate) {
-      axios
-        .patch(
-          `http://localhost:8080/api/rest/update-meeting/${selectEventData.id}`,
-          {
-            end_date: newEndDate,
-            start_date: newStartDate,
-          }
-        )
-        .then(() => {
-          setModifylModalOpen(false);
-          mutate();
-        })
-        .catch((err) => console.log("err", err));
-    } else {
-      issue();
-    }
+  const handleModifyMeetingCancel = () => {
+    setModifylModalOpen(false);
+    setSelectDate("");
+    setSelectDateTime(["", ""]);
   };
 
-  const handleDelete = () => {
-    axios
-      .delete(
-        `http://localhost:8080/api/rest/delete-meeting/${selectEventData.id}`
-      )
-      .then(() => {
-        setDetailModalOpen(false);
-        mutate();
-      })
-      .catch((err) => console.log(err));
+  const handleChangeDetailModal = (open: boolean) => {
+    setDetailModalOpen(open);
+  };
+  const handleChangeModifyModal = (open: boolean) => {
+    setModifylModalOpen(open);
   };
   const getCompany = (email?: string | null) => {
     if (email) {
@@ -250,7 +161,7 @@ export default function Home() {
   useEffect(() => {
     if (session) {
       axios
-        .get(`http://localhost:8080/api/rest/user/${session.user?.email}`)
+        .get(`/api/rest/user/${session.user?.email}`)
         .then((res) => {
           const newUser = res.data.users[0];
           setUser({
@@ -261,7 +172,7 @@ export default function Home() {
           });
         })
         .catch(() => {
-          axios.post("http://localhost:8080/api/rest/users", {
+          axios.post("/api/rest/users", {
             login: session.user?.email,
             company: getCompany(session.user?.email),
             name: session.user?.name,
@@ -281,37 +192,13 @@ export default function Home() {
     <Layout>
       <Sider trigger={null} collapsible collapsed={collapsed}>
         <div className="demo-logo-vertical" />
-        <Menu
-          theme="dark"
-          mode="inline"
-          defaultSelectedKeys={["1"]}
-          selectedKeys={[selectRoomNum]}
-          items={[
-            {
-              key: "1",
-              icon: <CalendarOutlined />,
-              label: "제 1 회의실",
-            },
-            {
-              key: "2",
-              icon: <CalendarOutlined />,
-              label: "제 2 회의실",
-            },
-            {
-              key: "3",
-              icon: <CalendarOutlined />,
-              label: session ? "로그아웃" : "로그인",
-            },
-          ]}
-          onClick={(data) =>
-            data.key === "3"
-              ? session
-                ? signOut()
-                : signIn()
-              : setSelectRoomNum(data.key)
-          }
+        <MenuItems
+          selectRoomNum={selectRoomNum}
+          setSelectRoomNum={setSelectRoomNum}
+          session={session}
         />
       </Sider>
+
       <Layout>
         <Header style={{ padding: 0, background: colorBgContainer }}>
           <Button
@@ -373,225 +260,90 @@ export default function Home() {
                   }}
                   eventColor="#2C3E50"
                 />
-                <Modal
-                  title="회의실 예약"
-                  centered
-                  open={modalOpen}
-                  onOk={handleCreate}
-                  okText="예약하기"
-                  onCancel={onCancel}
-                  cancelText="취소"
-                >
-                  <ModalContentWrapper>
-                    <Input
-                      placeholder="회사 명"
-                      style={{ width: "50%" }}
-                      defaultValue={user.company}
-                      disabled
-                    />
-                    <Input
-                      placeholder="예약자 명"
-                      style={{ width: "50%" }}
-                      defaultValue={user.name}
-                      disabled
-                    />
-                    <Input
-                      placeholder="예약 날짜"
-                      style={{ width: "50%" }}
-                      defaultValue={selectDate}
-                      disabled
-                    />
-                    <TimePickerWrapper>
-                      <TimePicker
-                        value={dayjs(selectDateTime[0].slice(11, 16), "HH:mm")}
-                        format="HH:mm"
-                        placeholder="start time"
-                        onChange={handleChangeStartDate}
-                        style={{ width: "40%" }}
-                        minuteStep={30}
-                      />
-                      <ArrowRightOutlined />
-                      <TimePicker
-                        value={dayjs(selectDateTime[1].slice(11, 16), "HH:mm")}
-                        format="HH:mm"
-                        placeholder="end time"
-                        style={{ width: "40%" }}
-                        onChange={handleChangeEndDate}
-                        minuteStep={30}
-                      />
-                    </TimePickerWrapper>
-                  </ModalContentWrapper>
-                </Modal>
-
-                <Modal
-                  title={`예약 상세`}
-                  centered
-                  open={detailModalOpen}
-                  onOk={() => {
-                    setDetailModalOpen(false);
-                    setModifylModalOpen(true);
-                  }}
-                  okText="수정하기"
-                  footer={
-                    user.id === selectEventData.userId
-                      ? [
-                          <ButtonContainer key="submit">
-                            <Button
-                              key="submit"
-                              type="primary"
-                              onClick={handleDelete}
-                            >
-                              삭제하기
-                            </Button>
-                          </ButtonContainer>,
-                          <ButtonContainer key="submit">
-                            <Button
-                              key="submit"
-                              type="primary"
-                              onClick={() => {
-                                setDetailModalOpen(false);
-                                setModifylModalOpen(true);
-                                setSelectDate(
-                                  moment(selectEventData.start).format(
-                                    "YYYY-MM-DD"
-                                  )
-                                );
-                              }}
-                            >
-                              수정하기
-                            </Button>
-                          </ButtonContainer>,
-                        ]
-                      : []
-                  }
-                  onCancel={() => setDetailModalOpen(false)}
-                  cancelText="취소"
-                >
-                  <ModalContentWrapper>
-                    <Input
-                      placeholder="회사 명"
-                      style={{ width: "50%" }}
-                      value={selectEventData.title}
-                      disabled
-                    />
-                    <Input
-                      placeholder="예약자 명"
-                      style={{ width: "50%" }}
-                      value={selectEventData.username}
-                      disabled
-                    />
-                    <Input
-                      placeholder="예약 날짜"
-                      style={{ width: "50%" }}
-                      defaultValue={selectDate}
-                      disabled
-                    />
-                    {selectEventData && (
-                      <TimePickerWrapper>
-                        <TimePicker
-                          value={dayjs(
-                            dateToTimestamp(selectEventData.start).slice(
-                              11,
-                              16
-                            ),
-                            "HH:mm"
-                          )}
-                          format="HH:mm"
-                          placeholder="start time"
-                          style={{ width: "40%" }}
-                          disabled
-                        />
-                        <ArrowRightOutlined />
-                        <TimePicker
-                          value={dayjs(
-                            dateToTimestamp(selectEventData.end).slice(11, 16),
-                            "HH:mm"
-                          )}
-                          format="HH:mm"
-                          placeholder="end time"
-                          style={{ width: "40%" }}
-                          disabled
-                        />
-                      </TimePickerWrapper>
-                    )}
-                  </ModalContentWrapper>
-                </Modal>
-
-                <Modal
-                  title={`예약 수정`}
-                  centered
-                  open={modifyModalOpen}
-                  onOk={handleModify}
-                  okText="저장하기"
-                  onCancel={() => {
-                    setModifylModalOpen(false);
-                    setSelectDate("");
-                    setSelectDateTime(["", ""]);
-                  }}
-                  cancelText="취소"
-                >
-                  <ModalContentWrapper>
-                    <Input
-                      placeholder="회사 명"
-                      style={{ width: "50%" }}
-                      value={selectEventData.title}
-                      disabled
-                    />
-                    <Input
-                      placeholder="예약자 명"
-                      style={{ width: "50%" }}
-                      value={selectEventData.username}
-                      disabled
-                    />
-                    <Input
-                      placeholder="예약 날짜"
-                      style={{ width: "50%" }}
-                      defaultValue={selectDate}
-                      disabled
-                    />
-                    {selectEventData && (
-                      <TimePickerWrapper>
-                        <TimePicker
-                          value={dayjs(
-                            dateToTimestamp(
-                              selectDateTime[0] === ""
-                                ? selectEventData.start
-                                : selectDateTime[0]
-                            ).slice(11, 16),
-                            "HH:mm"
-                          )}
-                          format="HH:mm"
-                          placeholder="start time"
-                          onChange={handleChangeStartDate}
-                          style={{ width: "40%" }}
-                          minuteStep={30}
-                        />
-                        <ArrowRightOutlined />
-                        <TimePicker
-                          value={dayjs(
-                            dateToTimestamp(
-                              selectDateTime[1] === ""
-                                ? selectEventData.end
-                                : selectDateTime[1]
-                            ).slice(11, 16),
-                            "HH:mm"
-                          )}
-                          format="HH:mm"
-                          placeholder="end time"
-                          style={{ width: "40%" }}
-                          onChange={handleChangeEndDate}
-                          minuteStep={30}
-                        />
-                      </TimePickerWrapper>
-                    )}
-                  </ModalContentWrapper>
-                </Modal>
+                <CreateMeetingModal
+                  onChangeEndDate={handleChangeEndDate}
+                  onChangeStartDate={handleChangeStartDate}
+                  selectRoomNum={selectRoomNum}
+                  mutate={mutate}
+                  modalOpen={modalOpen}
+                  onCreateMeetingCancel={handleCreateMeetingCancel}
+                  selectDate={selectDate}
+                  selectDateTime={selectDateTime}
+                  user={user}
+                />
+                <DetailMeetingModal
+                  detailModalOpen={detailModalOpen}
+                  mutate={mutate}
+                  onChangeDetailModal={handleChangeDetailModal}
+                  onChangeModifyModal={handleChangeModifyModal}
+                  selectDate={selectDate}
+                  selectEventData={selectEventData}
+                  setSelectDate={(data) => setSelectDate(data)}
+                  user={user}
+                  dateToTimestamp={dateToTimestamp}
+                />
+                <ModifyMeetingModal
+                  modifyModalOpen={modifyModalOpen}
+                  onModifyMeetingCancel={handleModifyMeetingCancel}
+                  onChangeEndDate={handleChangeEndDate}
+                  onChangeStartDate={handleChangeStartDate}
+                  mutate={mutate}
+                  onChangeModifyModal={handleChangeModifyModal}
+                  selectDate={selectDate}
+                  selectDateTime={selectDateTime}
+                  selectEventData={selectEventData}
+                  setSelectDateTime={(data) => setSelectDateTime(data)}
+                  dateToTimestamp={dateToTimestamp}
+                />
               </CalendarWrapper>
             </ContentWrapper>
           </Container>
         </Content>
       </Layout>
     </Layout>
+  );
+}
+
+function MenuItems({
+  selectRoomNum,
+  setSelectRoomNum,
+  session,
+}: {
+  selectRoomNum: string;
+  setSelectRoomNum: React.Dispatch<React.SetStateAction<string>>;
+  session: Session | null;
+}) {
+  return (
+    <Menu
+      theme="dark"
+      mode="inline"
+      defaultSelectedKeys={["1"]}
+      selectedKeys={[selectRoomNum]}
+      items={[
+        {
+          key: "1",
+          icon: <CalendarOutlined />,
+          label: "제 1 회의실",
+        },
+        {
+          key: "2",
+          icon: <CalendarOutlined />,
+          label: "제 2 회의실",
+        },
+        {
+          key: "3",
+          icon: <UserOutlined />,
+          label: session ? "로그아웃" : "로그인",
+        },
+      ]}
+      onClick={(data) =>
+        data.key === "3"
+          ? session
+            ? signOut()
+            : signIn()
+          : setSelectRoomNum(data.key)
+      }
+    />
   );
 }
 
@@ -618,23 +370,5 @@ const CalendarWrapper = styled.div`
   }
   .fc-day-sat a {
     color: blue;
-  }
-`;
-const ModalContentWrapper = styled.div`
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-`;
-const TimePickerWrapper = styled.div`
-  width: 100%;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-`;
-const ButtonContainer = styled.span`
-  margin-left: 5px;
-  .ant-btn-primary {
-    background-color: #2c3e50;
   }
 `;
