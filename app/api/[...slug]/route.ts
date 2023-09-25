@@ -30,6 +30,7 @@ async function fetchToHasura(
     data: body ? JSON.stringify(body) : null,
   })
     .then((res) => {
+      console.log("완료", res.data);
       return res.data;
     })
     .catch((err) => {
