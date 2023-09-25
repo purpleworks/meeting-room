@@ -228,6 +228,7 @@ export default function Home() {
                   plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                   initialView="timeGridWeek"
                   events={refetchData}
+                  allDaySlot={false}
                   headerToolbar={{
                     left: "prev,next today",
                     center: "title",
@@ -235,6 +236,9 @@ export default function Home() {
                   }}
                   selectable={true}
                   editable={false}
+                  slotMinTime="08:00:00"
+                  slotMaxTime="20:00:00"
+                  expandRows={true}
                   dateClick={(info) => {
                     let newDate = new Date(info.dateStr);
                     newDate.setHours(newDate.getHours() + 1);

@@ -21,39 +21,20 @@ async function fetchToHasura(
   method: "GET" | "POST" | "PATCH" | "DELETE",
   body: BodyInit | null | undefined = null
 ) {
-  const axiosParams =
-    method === "DELETE"
-      ? {
-          url,
-          method: method,
-          headers: {
-            "x-hasura-admin-secret":
-              process.env.NEXT_PUBLIC_HASURA_SECRET_KEY || "",
-          },
-        }
-      : {
-          url,
-          method: method,
-          headers: {
-            "x-hasura-admin-secret":
-              process.env.NEXT_PUBLIC_HASURA_SECRET_KEY || "",
-          },
-          data: body ? JSON.stringify(body) : undefined,
-        };
-  const res = await axios(axiosParams)
-    .then((res) => {
-      console.log("완료", res.data);
-      return res.data;
-    })
-    .catch((err) => {
-      console.log("에러", err);
-    });
+  const res = await axios({
+    url,
+    method: method,
+    headers: {
+      "x-hasura-admin-secret": process.env.NEXT_PUBLIC_HASURA_SECRET_KEY || "",
+    },
+    data: body ? JSON.stringify(body) : undefined,
+  });
   // const response = await fetch(url, {
   //   headers: injectHasuraAdminSecret(request.headers),
   //   method,
   //   body: body ? JSON.stringify(body) : null,
   // });
-  const response = await res;
+  const response = await res.data;
   return { response, status: response.status };
 }
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
