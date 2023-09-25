@@ -1,6 +1,12 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
+const allowEmailDomainWhiteList = [
+  "purpleworks.co.kr",
+  "yoil.co.kr",
+  "findmodel.co.kr",
+];
+
 const authOptions = NextAuth({
   providers: [
     GoogleProvider({
@@ -22,15 +28,9 @@ const authOptions = NextAuth({
     //   return session;
     // },
     async signIn({ profile }) {
-      const isAllowedToSignIn =
-        profile?.email?.endsWith("@purpleworks.co.kr") ||
-        profile?.email?.endsWith("@yoil.co.kr") ||
-        profile?.email?.endsWith("@findmodel.co.kr");
-      if (isAllowedToSignIn) {
-        return true;
-      } else {
-        return false;
-      }
+      return allowEmailDomainWhiteList.some((domain) =>
+        profile?.email?.includes(domain)
+      );
     },
   },
 });
