@@ -21,14 +21,26 @@ async function fetchToHasura(
   method: "GET" | "POST" | "PATCH" | "DELETE",
   body: BodyInit | null | undefined = null
 ) {
-  const res = await axios({
-    url,
-    method: method,
-    headers: {
-      "x-hasura-admin-secret": process.env.NEXT_PUBLIC_HASURA_SECRET_KEY || "",
-    },
-    data: body ? JSON.stringify(body) : undefined,
-  })
+  const axiosParams =
+    method === "DELETE"
+      ? {
+          url,
+          method: method,
+          headers: {
+            "x-hasura-admin-secret":
+              process.env.NEXT_PUBLIC_HASURA_SECRET_KEY || "",
+          },
+        }
+      : {
+          url,
+          method: method,
+          headers: {
+            "x-hasura-admin-secret":
+              process.env.NEXT_PUBLIC_HASURA_SECRET_KEY || "",
+          },
+          data: body ? JSON.stringify(body) : undefined,
+        };
+  const res = await axios(axiosParams)
     .then((res) => {
       console.log("완료", res.data);
       return res.data;
