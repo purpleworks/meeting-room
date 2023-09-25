@@ -27,7 +27,7 @@ async function fetchToHasura(
     headers: {
       "x-hasura-admin-secret": process.env.NEXT_PUBLIC_HASURA_SECRET_KEY || "",
     },
-    data: body ? JSON.stringify(body) : null,
+    data: body ? JSON.stringify(body) : undefined,
   })
     .then((res) => {
       console.log("완료", res.data);
