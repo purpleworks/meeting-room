@@ -2,6 +2,7 @@ import axios from "axios";
 import { NextRequest, NextResponse } from "next/server";
 
 const baseUrl = "https://hasura.meetingroom.purpleworks.co.kr";
+// 환경변수로 node에서 허가되지 않은 인증TLS통신을 거부하지 않겠다고 설정
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 // function injectHasuraAdminSecret(headers: Headers) {
