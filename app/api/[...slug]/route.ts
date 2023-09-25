@@ -30,7 +30,6 @@ async function fetchToHasura(
     data: body ? JSON.stringify(body) : null,
   })
     .then((res) => {
-      console.log("응답", res);
       return res.data;
     })
     .catch((err) => {
@@ -41,7 +40,7 @@ async function fetchToHasura(
   //   method,
   //   body: body ? JSON.stringify(body) : null,
   // });
-  const response = await res.data;
+  const response = await res;
   return { response, status: response.status };
 }
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
