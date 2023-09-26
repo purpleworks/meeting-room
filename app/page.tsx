@@ -76,6 +76,17 @@ export default function Home() {
     `/api/rest/meetings/${parseInt(selectRoomNum)}`,
     fetcher
   );
+  const getEventColor = (company: string) => {
+    if (company === "퍼플웍스") {
+      return "#7B25F9";
+    } else if (company === "요일") {
+      return "#DB598F";
+    } else if (company === "핌") {
+      return "#65B89D";
+    } else {
+      return "#2C3E50";
+    }
+  };
 
   useEffect(() => {
     setMeetingsData(data?.meetings);
@@ -90,6 +101,7 @@ export default function Home() {
         userId: meeting.user.id,
         start: meeting.start_date,
         end: meeting.end_date,
+        color: getEventColor(meeting.company_name),
       };
     });
     setRefetchData(refetch);
@@ -262,7 +274,6 @@ export default function Home() {
                       moment(info.event.start).format("YYYY-MM-DD")
                     );
                   }}
-                  eventColor="#2C3E50"
                 />
                 <CreateMeetingModal
                   onChangeEndDate={handleChangeEndDate}
