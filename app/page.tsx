@@ -231,6 +231,7 @@ export default function Home() {
             padding: 24,
             minHeight: 280,
             background: colorBgContainer,
+            height: "calc(100vh - 112px)",
           }}
         >
           <Container>
