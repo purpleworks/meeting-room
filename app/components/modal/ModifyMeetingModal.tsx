@@ -14,10 +14,7 @@ interface IModifyMeetingModalProps {
   selectDateTime: string[];
   onChangeStartDate: (value: Dayjs | null, dateString: string) => void;
   onChangeEndDate: (value: Dayjs | null, dateString: string) => void;
-  mutate: (
-    data?: unknown,
-    opts?: boolean | MutatorOptions<any, unknown> | undefined
-  ) => Promise<unknown>;
+  mutate: () => void;
   onChangeModifyModal: (open: boolean) => void;
   setSelectDateTime: (data: string[]) => void;
   dateToTimestamp: (date: Date | string | null) => string;

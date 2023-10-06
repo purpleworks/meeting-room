@@ -19,6 +19,8 @@
     "@fullcalendar/daygrid": "^6.1.8",
     "@fullcalendar/interaction": "^6.1.8",
     "@fullcalendar/react": "^6.1.8",
+    "@fullcalendar/resource": "^6.1.9",
+    "@fullcalendar/resource-timegrid": "^6.1.9",
     "@fullcalendar/timegrid": "^6.1.8",
     "@types/node": "20.4.8",
     "@types/react": "18.2.19",

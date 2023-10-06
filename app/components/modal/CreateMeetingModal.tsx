@@ -9,10 +9,7 @@ import { MutatorOptions } from "swr";
 interface ICreateMeetingModalProps {
   modalOpen: boolean;
   selectRoomNum: string;
-  mutate: (
-    data?: unknown,
-    opts?: boolean | MutatorOptions<any, unknown> | undefined
-  ) => Promise<unknown>;
+  mutate: () => void;
   onCreateMeetingCancel: () => void;
   user: TUser;
   selectDate: string;
@@ -50,7 +47,7 @@ const CreateMeetingModal = (props: ICreateMeetingModalProps) => {
   const handleCreate = () => {
     axios({
       method: "get",
-      url: `/api/rest/search-meetings/${selectDateTime[0]}/${selectDateTime[1]}`,
+      url: `/api/rest/search-meetings/${selectRoomNum}/${selectDateTime[0]}/${selectDateTime[1]}`,
     })
       .then((res) => {
         if (res.data.meetings[0] === undefined) {

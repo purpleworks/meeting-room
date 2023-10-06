@@ -13,10 +13,7 @@ interface IDetailMeetingModalProps {
   detailModalOpen: boolean;
   onChangeDetailModal: (open: boolean) => void;
   onChangeModifyModal: (open: boolean) => void;
-  mutate: (
-    data?: unknown,
-    opts?: boolean | MutatorOptions<any, unknown> | undefined
-  ) => Promise<unknown>;
+  mutate: () => void;
   selectDate: string;
   setSelectDate: (data: string) => void;
   dateToTimestamp: (date: Date | string | null) => string;

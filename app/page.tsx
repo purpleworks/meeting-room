@@ -4,7 +4,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import styled from "styled-components";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin from "@fullcalendar/interaction";
+import interactionPlugin, { DateClickArg } from "@fullcalendar/interaction";
 import {
   CalendarOutlined,
   MenuFoldOutlined,
@@ -16,12 +16,13 @@ import { Dayjs } from "dayjs";
 import axios from "axios";
 import useSWR from "swr";
 import { signIn, signOut, useSession } from "next-auth/react";
-import { EventInput } from "@fullcalendar/core/index.js";
+import { EventClickArg, EventInput } from "@fullcalendar/core/index.js";
 import { Session } from "next-auth";
 import { TUser } from "./type/user";
 import DetailMeetingModal from "./components/modal/DetailMeetingModal";
 import ModifyMeetingModal from "./components/modal/ModifyMeetingModal";
 import CreateMeetingModal from "./components/modal/CreateMeetingModal";
+import resourceTimeGridPlugin from "@fullcalendar/resource-timegrid";
 
 interface IEvent {
   id: number;
@@ -41,6 +42,7 @@ interface IMeeting {
   };
   start_date: Date;
   end_date: Date;
+  resourceId?: number;
 }
 
 const { Header, Sider, Content } = Layout;
@@ -56,7 +58,8 @@ export default function Home() {
   const fetcher = (url: any) => fetch(url).then((res) => res.json());
   const moment = require("moment");
   const [collapsed, setCollapsed] = useState(false);
-  const [selectRoomNum, setSelectRoomNum] = useState("1");
+  const [selectRoomNum, setSelectRoomNum] = useState("0");
+  const [selectTodayRoomNum, setSelectTodayRoomNum] = useState("0");
   const [modalOpen, setModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [modifyModalOpen, setModifylModalOpen] = useState(false);
@@ -70,8 +73,15 @@ export default function Home() {
     start: null,
     end: null,
   });
+  const [todayMeetingsData, setTodayMeetingsData] = useState<IMeeting[]>([]);
   const [meetingsData, setMeetingsData] = useState<IMeeting[]>([]);
   const [refetchData, setRefetchData] = useState<EventInput[]>();
+  const {
+    data: allMeetings,
+    error: allMeetingError,
+    isLoading: allMeetingIsLoading,
+    mutate: allMeetingMutate,
+  } = useSWR(`/api/rest/meetings`, fetcher);
   const { data, error, isLoading, mutate } = useSWR(
     `/api/rest/meetings/${parseInt(selectRoomNum)}`,
     fetcher
@@ -87,28 +97,87 @@ export default function Home() {
       return "#2C3E50";
     }
   };
+  const getTitle = (selectRoom: string) => {
+    switch (selectRoom) {
+      case "0":
+        return "TODAY";
+        break;
+      case "1":
+        return "제 1 회의실";
+        break;
+      case "2":
+        return "제 2 회의실";
+        break;
+      default:
+        return "";
+    }
+  };
+  const isMutate = () => {
+    allMeetingMutate();
+    mutate();
+  };
 
   useEffect(() => {
     setMeetingsData(data?.meetings);
-  }, [selectRoomNum, data]);
+    setTodayMeetingsData(allMeetings?.meetings);
+  }, [selectRoomNum, data, allMeetings]);
 
   useEffect(() => {
-    const refetch = meetingsData?.map((meeting) => {
-      return {
-        id: meeting.id.toString(),
-        title: meeting.company_name,
-        username: meeting.user.name,
-        userId: meeting.user.id,
-        start: meeting.start_date,
-        end: meeting.end_date,
-        color: getEventColor(meeting.company_name),
-      };
-    });
+    const refetch =
+      selectRoomNum === "0"
+        ? todayMeetingsData?.map((meeting) => {
+            return {
+              id: meeting.id.toString(),
+              title: meeting.company_name,
+              username: meeting.user.name,
+              userId: meeting.user.id,
+              start: meeting.start_date,
+              end: meeting.end_date,
+              color: getEventColor(meeting.company_name),
+              resourceId: meeting.room_id,
+            };
+          })
+        : meetingsData?.map((meeting) => {
+            return {
+              id: meeting.id.toString(),
+              title: meeting.company_name,
+              username: meeting.user.name,
+              userId: meeting.user.id,
+              start: meeting.start_date,
+              end: meeting.end_date,
+              color: getEventColor(meeting.company_name),
+            };
+          });
     setRefetchData(refetch);
-  }, [meetingsData]);
+  }, [meetingsData, todayMeetingsData]);
 
   const dateToTimestamp = (date: Date | string | null) => {
     return moment(date).format("YYYY-MM-DDTHH:mm:ss+09:00");
+  };
+
+  const handleClickDate = (arg: DateClickArg) => {
+    console.log("arg", arg);
+    let newDate = new Date(arg.dateStr);
+    newDate.setHours(newDate.getHours() + 1);
+    setModalOpen(true);
+    const date = moment(newDate).format("YYYY-MM-DD");
+    const endDate = dateToTimestamp(newDate);
+    setSelectDate(date);
+    setSelectDateTime([arg.dateStr, endDate]);
+    setSelectTodayRoomNum(arg.resource?._resource.id ?? "0");
+  };
+
+  const handleClickEvent = (arg: EventClickArg) => {
+    setDetailModalOpen(true);
+    setSelectEventData({
+      id: Number(arg.event.id),
+      title: arg.event.title,
+      username: arg.event.extendedProps.username,
+      userId: arg.event.extendedProps.userId,
+      start: arg.event.start,
+      end: arg.event.end,
+    });
+    setSelectDate(moment(arg.event.start).format("YYYY-MM-DD"));
   };
 
   const handleChangeStartDate = (value: Dayjs | null, dateString: string) => {
@@ -223,7 +292,7 @@ export default function Home() {
               height: 64,
             }}
           />
-          <span>{selectRoomNum === "1" ? "제 1 회의실" : "제 2 회의실"}</span>
+          <span>{getTitle(selectRoomNum)}</span>
         </Header>
         <Content
           style={{
@@ -236,50 +305,69 @@ export default function Home() {
           <Container>
             <ContentWrapper>
               <CalendarWrapper>
-                <FullCalendar
-                  plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                  initialView="timeGridWeek"
-                  events={refetchData}
-                  allDaySlot={false}
-                  headerToolbar={{
-                    left: "prev,next today",
-                    center: "title",
-                    right: "dayGridMonth,timeGridWeek",
-                  }}
-                  selectable={true}
-                  editable={false}
-                  slotMinTime="08:00:00"
-                  slotMaxTime="20:00:00"
-                  expandRows={true}
-                  dateClick={(info) => {
-                    let newDate = new Date(info.dateStr);
-                    newDate.setHours(newDate.getHours() + 1);
-                    setModalOpen(true);
-                    const date = moment(newDate).format("YYYY-MM-DD");
-                    const endDate = dateToTimestamp(newDate);
-                    setSelectDate(date);
-                    setSelectDateTime([info.dateStr, endDate]);
-                  }}
-                  eventClick={(info) => {
-                    setDetailModalOpen(true);
-                    setSelectEventData({
-                      id: Number(info.event.id),
-                      title: info.event.title,
-                      username: info.event.extendedProps.username,
-                      userId: info.event.extendedProps.userId,
-                      start: info.event.start,
-                      end: info.event.end,
-                    });
-                    setSelectDate(
-                      moment(info.event.start).format("YYYY-MM-DD")
-                    );
-                  }}
-                />
+                {selectRoomNum === "0" ? (
+                  <>
+                    <FullCalendar
+                      plugins={[resourceTimeGridPlugin, interactionPlugin]}
+                      initialView="resourceTimeGridDay"
+                      resources={[
+                        { id: "1", title: "제 1 회의실" },
+                        { id: "2", title: "제 2 회의실" },
+                      ]}
+                      events={refetchData}
+                      allDaySlot={false}
+                      headerToolbar={{
+                        left: "",
+                        center: "title",
+                        right: "",
+                      }}
+                      selectable={true}
+                      editable={false}
+                      slotMinTime="08:00:00"
+                      slotMaxTime="20:00:00"
+                      expandRows={true}
+                      dateClick={handleClickDate}
+                      eventClick={handleClickEvent}
+                      titleFormat={{
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      }}
+                      locale={"ko"}
+                    />
+                  </>
+                ) : (
+                  <FullCalendar
+                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                    initialView="timeGridWeek"
+                    events={refetchData}
+                    allDaySlot={false}
+                    headerToolbar={{
+                      left: "prev,next today",
+                      center: "title",
+                      right: "dayGridMonth,timeGridWeek",
+                    }}
+                    selectable={true}
+                    editable={false}
+                    slotMinTime="08:00:00"
+                    slotMaxTime="20:00:00"
+                    expandRows={true}
+                    dateClick={handleClickDate}
+                    eventClick={handleClickEvent}
+                    titleFormat={{
+                      day: "2-digit",
+                      month: "2-digit",
+                    }}
+                    locale={"ko"}
+                  />
+                )}
                 <CreateMeetingModal
                   onChangeEndDate={handleChangeEndDate}
                   onChangeStartDate={handleChangeStartDate}
-                  selectRoomNum={selectRoomNum}
-                  mutate={mutate}
+                  selectRoomNum={
+                    selectRoomNum === "0" ? selectTodayRoomNum : selectRoomNum
+                  }
+                  mutate={isMutate}
                   modalOpen={modalOpen}
                   onCreateMeetingCancel={handleCreateMeetingCancel}
                   selectDate={selectDate}
@@ -288,7 +376,7 @@ export default function Home() {
                 />
                 <DetailMeetingModal
                   detailModalOpen={detailModalOpen}
-                  mutate={mutate}
+                  mutate={isMutate}
                   onChangeDetailModal={handleChangeDetailModal}
                   onChangeModifyModal={handleChangeModifyModal}
                   selectDate={selectDate}
@@ -302,7 +390,7 @@ export default function Home() {
                   onModifyMeetingCancel={handleModifyMeetingCancel}
                   onChangeEndDate={handleChangeEndDate}
                   onChangeStartDate={handleChangeStartDate}
-                  mutate={mutate}
+                  mutate={isMutate}
                   onChangeModifyModal={handleChangeModifyModal}
                   selectDate={selectDate}
                   selectDateTime={selectDateTime}
@@ -332,9 +420,14 @@ function MenuItems({
     <Menu
       theme="dark"
       mode="inline"
-      defaultSelectedKeys={["1"]}
+      defaultSelectedKeys={["0"]}
       selectedKeys={[selectRoomNum]}
       items={[
+        {
+          key: "0",
+          icon: <CalendarOutlined />,
+          label: "TODAY",
+        },
         {
           key: "1",
           icon: <CalendarOutlined />,
