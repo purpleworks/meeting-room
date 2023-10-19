@@ -23,6 +23,9 @@ import DetailMeetingModal from "./components/modal/DetailMeetingModal";
 import ModifyMeetingModal from "./components/modal/ModifyMeetingModal";
 import CreateMeetingModal from "./components/modal/CreateMeetingModal";
 import resourceTimeGridPlugin from "@fullcalendar/resource-timegrid";
+import DesktopMainContainer from "./desktop-main-container";
+import MobileMainContainer from "./mobile-main-container";
+import { NotLogin } from "./components/modal/WarningModal";
 
 interface IEvent {
   id: number;
@@ -45,8 +48,6 @@ interface IMeeting {
   resourceId?: number;
 }
 
-const { Header, Sider, Content } = Layout;
-
 export default function Home() {
   const { data: session } = useSession();
   const [user, setUser] = useState<TUser>({
@@ -55,12 +56,21 @@ export default function Home() {
     login: "",
     company: "",
   });
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const isMobile =
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      );
+    setIsMobile(isMobile);
+    setSelectRoomNum(isMobile ? "1" : "0");
+  }, [isMobile]);
   const fetcher = (url: any) => fetch(url).then((res) => res.json());
   const moment = require("moment");
-  const [collapsed, setCollapsed] = useState(false);
-  const [selectRoomNum, setSelectRoomNum] = useState("0");
+  const [selectRoomNum, setSelectRoomNum] = useState(isMobile ? "1" : "0");
   const [selectTodayRoomNum, setSelectTodayRoomNum] = useState("0");
-  const [modalOpen, setModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [modifyModalOpen, setModifylModalOpen] = useState(false);
   const [selectDateTime, setSelectDateTime] = useState(["", ""]);
@@ -159,7 +169,7 @@ export default function Home() {
     console.log("arg", arg);
     let newDate = new Date(arg.dateStr);
     newDate.setHours(newDate.getHours() + 1);
-    setModalOpen(true);
+    setCreateModalOpen(true);
     const date = moment(newDate).format("YYYY-MM-DD");
     const endDate = dateToTimestamp(newDate);
     setSelectDate(date);
@@ -181,14 +191,17 @@ export default function Home() {
   };
 
   const handleChangeStartDate = (value: Dayjs | null, dateString: string) => {
+    console.log("dateString", dateString);
     const formatStartDate = selectDate + "T" + dateString + ":00+09:00";
     if (formatStartDate >= selectDateTime[1]) {
       let newDate = new Date(formatStartDate);
       newDate.setHours(newDate.getHours() + 1);
       const endDate = dateToTimestamp(newDate);
       setSelectDateTime([formatStartDate, endDate]);
+      console.log("1", [formatStartDate, endDate]);
     } else {
       setSelectDateTime([formatStartDate, selectDateTime[1]]);
+      console.log("2", [formatStartDate, selectDateTime[1]]);
     }
   };
   const handleChangeEndDate = (value: Dayjs | null, dateString: string) => {
@@ -205,7 +218,7 @@ export default function Home() {
 
   const handleCreateMeetingCancel = () => {
     setSelectDateTime(["", ""]);
-    setModalOpen(false);
+    setCreateModalOpen(false);
   };
 
   const handleModifyMeetingCancel = () => {
@@ -227,9 +240,6 @@ export default function Home() {
       }
       if (email.endsWith("@yoil.co.kr")) {
         return "요일";
-      }
-      if (email.endsWith("@findmodel.co.kr")) {
-        return "핌";
       }
     }
     return "";
@@ -253,230 +263,85 @@ export default function Home() {
           });
         })
         .catch(() => {
-          axios.post("/api/rest/users", {
-            login: session.user?.email,
-            company: getCompany(session.user?.email),
-            name: session.user?.name,
-          });
+          if (getCompany(session.user?.email) !== "") {
+            axios.post("/api/rest/users", {
+              login: session.user?.email,
+              company: getCompany(session.user?.email),
+              name: session.user?.name,
+            });
+          } else {
+            NotLogin();
+          }
         });
     }
   }, [session]);
 
   useEffect(() => {
     setSelectDateTime(selectDateTime);
-  }, [selectDateTime, modalOpen, modifyModalOpen, detailModalOpen]);
+  }, [selectDateTime, createModalOpen, modifyModalOpen, detailModalOpen]);
 
   if (error) return <div>failed to load</div>;
   if (isLoading) return <div>loading...</div>;
 
   return (
     <Layout>
-      <Sider trigger={null} collapsible collapsed={collapsed}>
-        <div className="demo-logo-vertical" />
-        <MenuItems
+      {isMobile ? (
+        <MobileMainContainer
+          getTitle={getTitle(selectRoomNum)}
           selectRoomNum={selectRoomNum}
-          setSelectRoomNum={setSelectRoomNum}
-          session={session}
+          user={user}
+          setSelectRoomNum={(num: string) => setSelectRoomNum(num)}
+          colorBgContainer={colorBgContainer}
+          refetchData={refetchData}
+          onClickDate={handleClickDate}
+          onClickEvent={handleClickEvent}
+          onChangeEndDate={handleChangeEndDate}
+          onChangeStartDate={handleChangeStartDate}
+          selectTodayRoomNum={selectTodayRoomNum}
+          isMutate={isMutate}
+          selectDate={selectDate}
+          createModalOpen={createModalOpen}
+          detailModalOpen={detailModalOpen}
+          modifyModalOpen={modifyModalOpen}
+          dateToTimestamp={dateToTimestamp}
+          selectEventData={selectEventData}
+          selectDateTime={selectDateTime}
+          onChangeDetailModal={handleChangeDetailModal}
+          onChangeModifyModal={handleChangeModifyModal}
+          onCreateMeetingCancel={handleCreateMeetingCancel}
+          onModifyMeetingCancel={handleModifyMeetingCancel}
+          setSelectDate={(data) => setSelectDate(data)}
+          setSelectDateTime={(data) => setSelectDateTime(data)}
         />
-      </Sider>
-
-      <Layout>
-        <Header style={{ padding: 0, background: colorBgContainer }}>
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              fontSize: "16px",
-              width: 64,
-              height: 64,
-            }}
-          />
-          <span>{getTitle(selectRoomNum)}</span>
-        </Header>
-        <Content
-          style={{
-            margin: "24px 16px",
-            padding: 24,
-            minHeight: "calc(100vh - 112px)",
-            background: colorBgContainer,
-          }}
-        >
-          <Container>
-            <ContentWrapper>
-              <CalendarWrapper>
-                {selectRoomNum === "0" ? (
-                  <>
-                    <FullCalendar
-                      plugins={[resourceTimeGridPlugin, interactionPlugin]}
-                      initialView="resourceTimeGridDay"
-                      resources={[
-                        { id: "1", title: "제 1 회의실" },
-                        { id: "2", title: "제 2 회의실" },
-                      ]}
-                      events={refetchData}
-                      allDaySlot={false}
-                      headerToolbar={{
-                        left: "",
-                        center: "title",
-                        right: "",
-                      }}
-                      selectable={true}
-                      editable={false}
-                      slotMinTime="08:00:00"
-                      slotMaxTime="20:00:00"
-                      expandRows={true}
-                      dateClick={handleClickDate}
-                      eventClick={handleClickEvent}
-                      titleFormat={{
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      }}
-                      locale={"ko"}
-                    />
-                  </>
-                ) : (
-                  <FullCalendar
-                    plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                    initialView="timeGridWeek"
-                    events={refetchData}
-                    allDaySlot={false}
-                    headerToolbar={{
-                      left: "prev,next today",
-                      center: "title",
-                      right: "dayGridMonth,timeGridWeek",
-                    }}
-                    selectable={true}
-                    editable={false}
-                    slotMinTime="08:00:00"
-                    slotMaxTime="20:00:00"
-                    expandRows={true}
-                    dateClick={handleClickDate}
-                    eventClick={handleClickEvent}
-                    titleFormat={{
-                      day: "2-digit",
-                      month: "2-digit",
-                    }}
-                    locale={"ko"}
-                  />
-                )}
-                <CreateMeetingModal
-                  onChangeEndDate={handleChangeEndDate}
-                  onChangeStartDate={handleChangeStartDate}
-                  selectRoomNum={
-                    selectRoomNum === "0" ? selectTodayRoomNum : selectRoomNum
-                  }
-                  mutate={isMutate}
-                  modalOpen={modalOpen}
-                  onCreateMeetingCancel={handleCreateMeetingCancel}
-                  selectDate={selectDate}
-                  selectDateTime={selectDateTime}
-                  user={user}
-                />
-                <DetailMeetingModal
-                  detailModalOpen={detailModalOpen}
-                  mutate={isMutate}
-                  onChangeDetailModal={handleChangeDetailModal}
-                  onChangeModifyModal={handleChangeModifyModal}
-                  selectDate={selectDate}
-                  selectEventData={selectEventData}
-                  setSelectDate={(data) => setSelectDate(data)}
-                  user={user}
-                  dateToTimestamp={dateToTimestamp}
-                />
-                <ModifyMeetingModal
-                  modifyModalOpen={modifyModalOpen}
-                  onModifyMeetingCancel={handleModifyMeetingCancel}
-                  onChangeEndDate={handleChangeEndDate}
-                  onChangeStartDate={handleChangeStartDate}
-                  mutate={isMutate}
-                  onChangeModifyModal={handleChangeModifyModal}
-                  selectDate={selectDate}
-                  selectDateTime={selectDateTime}
-                  selectEventData={selectEventData}
-                  setSelectDateTime={(data) => setSelectDateTime(data)}
-                  dateToTimestamp={dateToTimestamp}
-                />
-              </CalendarWrapper>
-            </ContentWrapper>
-          </Container>
-        </Content>
-      </Layout>
+      ) : (
+        <DesktopMainContainer
+          getTitle={getTitle(selectRoomNum)}
+          selectRoomNum={selectRoomNum}
+          user={user}
+          setSelectRoomNum={(num: string) => setSelectRoomNum(num)}
+          colorBgContainer={colorBgContainer}
+          refetchData={refetchData}
+          onClickDate={handleClickDate}
+          onClickEvent={handleClickEvent}
+          onChangeEndDate={handleChangeEndDate}
+          onChangeStartDate={handleChangeStartDate}
+          selectTodayRoomNum={selectTodayRoomNum}
+          isMutate={isMutate}
+          selectDate={selectDate}
+          createModalOpen={createModalOpen}
+          detailModalOpen={detailModalOpen}
+          modifyModalOpen={modifyModalOpen}
+          dateToTimestamp={dateToTimestamp}
+          selectEventData={selectEventData}
+          selectDateTime={selectDateTime}
+          onChangeDetailModal={handleChangeDetailModal}
+          onChangeModifyModal={handleChangeModifyModal}
+          onCreateMeetingCancel={handleCreateMeetingCancel}
+          onModifyMeetingCancel={handleModifyMeetingCancel}
+          setSelectDate={(data) => setSelectDate(data)}
+          setSelectDateTime={(data) => setSelectDateTime(data)}
+        />
+      )}
     </Layout>
   );
 }
-
-function MenuItems({
-  selectRoomNum,
-  setSelectRoomNum,
-  session,
-}: {
-  selectRoomNum: string;
-  setSelectRoomNum: React.Dispatch<React.SetStateAction<string>>;
-  session: Session | null;
-}) {
-  return (
-    <Menu
-      theme="dark"
-      mode="inline"
-      defaultSelectedKeys={["0"]}
-      selectedKeys={[selectRoomNum]}
-      items={[
-        {
-          key: "0",
-          icon: <CalendarOutlined />,
-          label: "TODAY",
-        },
-        {
-          key: "1",
-          icon: <CalendarOutlined />,
-          label: "제 1 회의실",
-        },
-        {
-          key: "2",
-          icon: <CalendarOutlined />,
-          label: "제 2 회의실",
-        },
-        {
-          key: "3",
-          icon: <UserOutlined />,
-          label: session ? "로그아웃" : "로그인",
-        },
-      ]}
-      onClick={(data) =>
-        data.key === "3"
-          ? session
-            ? signOut()
-            : signIn()
-          : setSelectRoomNum(data.key)
-      }
-    />
-  );
-}
-
-const Container = styled.div`
-  width: 100%;
-  height: 100%;
-`;
-const ContentWrapper = styled.div`
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  padding-top: 30px;
-`;
-const CalendarWrapper = styled.div`
-  width: 100%;
-  .fc .fc-col-header-cell-cushion,
-  .fc-daygrid-day-number,
-  .fc-event {
-    color: #2c3e50;
-  }
-  .fc-day-sun a {
-    color: red;
-  }
-  .fc-day-sat a {
-    color: blue;
-  }
-`;

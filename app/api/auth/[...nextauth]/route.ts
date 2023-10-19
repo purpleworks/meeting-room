@@ -1,11 +1,8 @@
+import axios from "axios";
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-const allowEmailDomainWhiteList = [
-  "purpleworks.co.kr",
-  "yoil.co.kr",
-  "findmodel.co.kr",
-];
+const allowEmailDomainWhiteList = ["purpleworks.co.kr", "yoil.co.kr"];
 
 const authOptions = NextAuth({
   providers: [
@@ -28,9 +25,25 @@ const authOptions = NextAuth({
     //   return session;
     // },
     async signIn({ profile }) {
-      return allowEmailDomainWhiteList.some((domain) =>
+      const companyCheck = allowEmailDomainWhiteList.some((domain) =>
         profile?.email?.includes(domain)
       );
+      const emailCheck = axios({
+        url: `https://hasura.meetingroom.purpleworks.co.kr/api/rest/user/${profile?.email}`,
+        method: "GET",
+        headers: {
+          "x-hasura-admin-secret":
+            process.env.NEXT_PUBLIC_HASURA_SECRET_KEY || "",
+        },
+        data: undefined,
+      }).then((res) => {
+        if (res.data.users[0]) {
+          return true;
+        }
+        return false;
+      });
+
+      return companyCheck ? true : (await emailCheck).valueOf();
     },
   },
 });

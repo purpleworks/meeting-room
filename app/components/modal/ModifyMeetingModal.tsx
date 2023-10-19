@@ -4,7 +4,7 @@ import { Input, Modal, TimePicker } from "antd";
 import axios from "axios";
 import dayjs, { Dayjs } from "dayjs";
 import { styled } from "styled-components";
-import { MutatorOptions } from "swr";
+import { Issue } from "./WarningModal";
 
 interface IModifyMeetingModalProps {
   modifyModalOpen: boolean;
@@ -34,12 +34,6 @@ const ModifyMeetingModal = (props: IModifyMeetingModalProps) => {
     setSelectDateTime,
     dateToTimestamp,
   } = props;
-  const issue = () => {
-    Modal.warning({
-      title: "예약할 수 없습니다",
-      content: "시간을 확인해주세요.",
-    });
-  };
 
   const handleModify = () => {
     const newEndDate =
@@ -63,7 +57,7 @@ const ModifyMeetingModal = (props: IModifyMeetingModalProps) => {
         })
         .catch((err) => console.log("err", err));
     } else {
-      issue();
+      Issue();
     }
   };
 
